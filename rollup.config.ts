@@ -17,7 +17,7 @@ export default {
   ],
   sourcemap: true,
   // Indicate here external modules you don't wanna include in your bundle (i.e.: 'lodash')
-  external: [],
+  external: ['mobx', 'mobx-react', 'react', 'react-dom'],
   watch: {
     include: 'src/**'
   },

@@ -1,12 +1,14 @@
 {
   "name": "create-mobx-container",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "",
   "keywords": [],
   "main": "dist/create-mobx-container.umd.js",
   "module": "dist/create-mobx-container.es5.js",
   "typings": "dist/types/create-mobx-container.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "author": "Michael Jewell <michaeljewell9911@gmail.com>",
   "repository": {
     "type": "git",
@@ -19,8 +21,7 @@
   "scripts": {
     "lint": "tslint -t codeFrame 'src/**/*.ts' 'src/**/*.tsx' 'test/**/*.ts'",
     "prebuild": "rimraf dist",
-    "build":
-      "tsc --module commonjs && rollup -c rollup.config.ts && typedoc --out docs --target es6 --theme minimal --mode file src",
+    "build": "tsc --module commonjs && rollup -c rollup.config.ts && typedoc --out docs --target es6 --theme minimal --mode file src",
     "start": "rollup -c rollup.config.ts -w",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -33,7 +34,10 @@
     "precommit": "lint-staged"
   },
   "lint-staged": {
-    "{src,test}/**/*.tsx?": ["prettier --write --no-semi --single-quote", "git add"]
+    "{src,test}/**/*.tsx?": [
+      "prettier --write --no-semi --single-quote",
+      "git add"
+    ]
   },
   "config": {
     "commitizen": {
@@ -41,8 +45,7 @@
     },
     "validate-commit-msg": {
       "types": "conventional-commit-types",
-      "helpMessage":
-        "Use \"npm run commit\" instead, we use conventional-changelog format :) (https://github.com/commitizen/cz-cli)"
+      "helpMessage": "Use \"npm run commit\" instead, we use conventional-changelog format :) (https://github.com/commitizen/cz-cli)"
     }
   },
   "jest": {
@@ -50,8 +53,15 @@
       ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js"
     },
     "testRegex": "(/__tests__/.*|\\.(test|spec))\\.(ts|tsx|js)$",
-    "moduleFileExtensions": ["ts", "tsx", "js"],
-    "coveragePathIgnorePatterns": ["/node_modules/", "/test/"],
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/test/"
+    ],
     "coverageThreshold": {
       "global": {
         "branches": 90,

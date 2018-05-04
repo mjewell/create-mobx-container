@@ -2,60 +2,48 @@ import { observer, Provider, PropTypes } from 'mobx-react';
 import { reaction, IReactionDisposer } from 'mobx';
 import React, { Component, ComponentType } from 'react';
 
-export const SKIP_RERENDER = 'SKIP_RERENDER';
-
-export type CreateContainerArgs<PropsIn, PropsOut, Store, ContextStores> = {
-  createStore?: (props: PropsIn, contextStores: ContextStores) => Store;
-  initializeStore?: (store: Store, props: PropsIn, contextStores: ContextStores) => void;
-  mapStoreToProps?: (
-    store: Store,
-    props: PropsIn,
-    contextStores: ContextStores
-  ) => Partial<PropsOut>;
-  onPropsChange?: (store: Store, props: PropsIn) => void;
-  mapContextStoresToState?: (contextStore: ContextStores) => any;
-  onContextStoresChange?: (store: Store, newState: any) => void | 'SKIP_RERENDER';
-  destroyStore?: (store: Store, props: PropsIn, contextStores: ContextStores) => void;
+export type CreateContainerArgs<PropsIn, PropsOut, Store, Snapshot> = {
+  createStore?: (props: PropsIn) => Store;
+  initializeStore?: (store: Store, props: PropsIn) => void;
+  mapStoreToProps?: (store: Store, props: PropsIn) => Partial<PropsOut>;
+  onPropsChange?: (store: Store, nextProps: PropsIn) => void;
+  beforeUpdate?: (store: Store, nextProps: PropsIn, props: PropsIn) => Snapshot;
+  onUpdate?: (store: Store, props: PropsIn, prevProps: PropsIn, snapshot: Snapshot) => void;
+  destroyStore?: (store: Store, props: PropsIn) => void;
   contextName?: string;
 };
 
-export default function createContainer<PropsIn, PropsOut, Store, ContextStores>({
-  createStore = (props: PropsIn, contextStores: ContextStores) => null,
+export default function createContainer<PropsIn, PropsOut, Store, Snapshot>({
+  createStore = (props: PropsIn) => null,
   initializeStore = () => null,
-  mapStoreToProps = () => ({}),
+  mapStoreToProps = (store: Store, props: PropsIn) => ({}),
   onPropsChange = () => null,
-  mapContextStoresToState = () => ({}),
-  onContextStoresChange = () => SKIP_RERENDER,
+  beforeUpdate = (store: Store, nextProps: PropsIn, props: PropsIn) => null,
+  onUpdate = () => null,
   destroyStore = () => null,
   contextName
-}: CreateContainerArgs<PropsIn, PropsOut, Store, ContextStores>) {
+}: CreateContainerArgs<PropsIn, PropsOut, Store, Snapshot>) {
   return (WrappedComponent: ComponentType<PropsIn & PropsOut>): ComponentType<PropsIn> => {
     type State = {
       store: Store;
-      triggerState: boolean;
     };
     const wrappedComponentName = WrappedComponent.displayName || WrappedComponent.name;
 
     class Container extends Component<PropsIn, State> {
       static readonly displayName = `${wrappedComponentName}Container`;
-      static readonly contextTypes = {
-        mobxStores: PropTypes.objectOrObservableObject
-      };
+      snapshot?: Snapshot;
 
-      mobxStoresReactionDisposer?: IReactionDisposer;
-
-      constructor(props: PropsIn, context: { mobxStores: ContextStores }) {
-        super(props, context);
+      constructor(props: PropsIn) {
+        super(props);
 
         this.state = {
-          store: createStore(props, context.mobxStores) as Store,
-          triggerState: false
+          store: createStore(props)!
         };
 
-        onContextStoresChange(this.state.store, mapContextStoresToState(context.mobxStores));
         onPropsChange(this.state.store, props);
       }
 
+      // only get nextProps and not this.props to match behaviour of getDerivedStateFromProps
       componentWillReceiveProps(nextProps: PropsIn) {
         onPropsChange(this.state.store, nextProps);
       }
@@ -64,33 +52,26 @@ export default function createContainer<PropsIn, PropsOut, Store, ContextStores>
       // we should set up anything that needs to be torn down here
       // instead of relying on createStore
       componentDidMount() {
-        initializeStore(this.state.store, this.props, this.context.mobxStores);
+        initializeStore(this.state.store, this.props);
+      }
 
-        this.mobxStoresReactionDisposer = reaction(
-          () => mapContextStoresToState(this.context.mobxStores),
-          state => {
-            const skipRerender = onContextStoresChange(this.state.store, state);
+      // save snapshot for componentDidUpdate to match behaviour of getSnapshotBeforeUpdate
+      componentWillUpdate(nextProps: PropsIn) {
+        this.snapshot = beforeUpdate(this.state.store, nextProps, this.props)!;
+      }
 
-            if (skipRerender === SKIP_RERENDER) {
-              return;
-            }
-
-            this.setState({
-              triggerState: !this.state.triggerState
-            });
-          }
-        );
+      componentDidUpdate(prevProps: PropsIn) {
+        onUpdate(this.state.store, this.props, prevProps, this.snapshot!);
       }
 
       componentWillUnmount() {
-        this.mobxStoresReactionDisposer!();
-        destroyStore(this.state.store, this.props, this.context.mobxStores);
+        destroyStore(this.state.store, this.props);
       }
 
       render() {
         const props = {
           ...(this.props as any),
-          ...(mapStoreToProps(this.state.store, this.props, this.context.mobxStores) as any)
+          ...(mapStoreToProps(this.state.store, this.props) as any)
         };
 
         const wrappedComponent = <WrappedComponent {...props} />;

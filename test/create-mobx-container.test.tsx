@@ -63,46 +63,93 @@ describe('mapStoreToProps', () => {
     });
   });
 
-  it('receives the result of createStore as the first argument', () => {
+  it('receives the result of createStore and the props as arguments', () => {
     class Store {
       @observable field = 1;
     }
 
-    const Component = ({ store }) => <div />;
+    const Component = ({ store, a, b }) => <div />;
 
     const instance = new Store();
 
     const container = createContainer({
       createStore: () => instance,
-      mapStoreToProps: store => ({
+      mapStoreToProps: (store, props: { a: number; b: number }) => ({
+        b: props.b + 1,
         store
       })
     });
 
     const EnhancedComponent = container(Component);
 
-    const wrapper = mount(<EnhancedComponent />);
+    const wrapper = mount(<EnhancedComponent a={1} b={2} />);
 
     expect(wrapper.find(Component).props()).toEqual({
+      a: 1,
+      b: 3,
       store: instance
     });
   });
 });
 
-test('lifecycle', () => {
-  const Component = () => <div />;
+test('lifecycle', done => {
+  const Component = ({ a }) => <div />;
 
-  const container = createContainer({
-    createStore: () => console.log('createStore'),
-    initializeStore: () => console.log('initializeStore'),
-    mapStoreToProps: () => console.log('mapStoreToProps'),
-    onPropsChange: () => console.log('onPropsChange'),
-    beforeUpdate: () => console.log('beforeUpdate'),
-    onUpdate: () => console.log('onUpdate'),
-    destroyStore: () => console.log('destroyStore')
+  const lifecycleCalls = [];
+
+  const container = createContainer<{ a: number }, {}, {}, {}>({
+    createStore: () => lifecycleCalls.push('createStore'),
+    initializeStore: () => lifecycleCalls.push('initializeStore'),
+    mapStoreToProps: () => {
+      lifecycleCalls.push('mapStoreToProps');
+      return {};
+    },
+    onPropsChange: () => lifecycleCalls.push('onPropsChange'),
+    beforeUpdate: () => lifecycleCalls.push('beforeUpdate'),
+    onUpdate: () => lifecycleCalls.push('onUpdate'),
+    destroyStore: () => lifecycleCalls.push('destroyStore')
   });
 
   const EnhancedComponent = container(Component);
 
-  const wrapper = mount(<EnhancedComponent />);
+  class Parent extends React.Component {
+    state = {
+      a: 1
+    };
+
+    constructor(props) {
+      super(props);
+      setTimeout(() => this.setState({ a: 2 }));
+    }
+
+    render() {
+      return <EnhancedComponent a={this.state.a} />;
+    }
+  }
+
+  expect(lifecycleCalls.length).toBe(0);
+
+  const wrapper = mount(<Parent />);
+
+  expect(lifecycleCalls.length).toBe(4);
+  expect(lifecycleCalls).toEqual([
+    'createStore',
+    'onPropsChange',
+    'mapStoreToProps',
+    'initializeStore'
+  ]);
+
+  setTimeout(() => {
+    expect(lifecycleCalls).toEqual([
+      'createStore',
+      'onPropsChange',
+      'mapStoreToProps',
+      'initializeStore',
+      'onPropsChange',
+      'beforeUpdate',
+      'mapStoreToProps',
+      'onUpdate'
+    ]);
+    done();
+  }, 10);
 });
